@@ -1,4 +1,4 @@
-from keras.models import Sequential
+from keras.models import Sequential, load_model
 from keras.layers import Dense, Activation, Dropout
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.normalization import BatchNormalization
@@ -8,7 +8,6 @@ from keras.optimizers import Adam
 import numpy as np
 import numbers
 import pandas as pd
-import matplotlib.pyplot as plt
 from sklearn.preprocessing import normalize
 
 
@@ -275,29 +274,24 @@ def predict_matchups(years, seeds, model, stats):
     :param model: neural net
     :param stats: season statistics
     """
+
     for year in years:
-        preds = []
         year_stats = stats[stats["Season"] == year]
         year_seeds = seeds[seeds["Season"] == year]
         year_teams = sorted(year_seeds["Team"].values)
+        df = pd.DataFrame(index=year_teams, columns=year_teams).fillna(0.)
         for i in range(len(year_teams)):
             for j in range(i, len(year_teams)):
                 if i != j:
-                    team1_id = year_teams[i]
-                    team2_id = year_teams[j]
                     team1_stats = year_stats.loc[year_teams[i]]
                     team2_stats = year_stats.loc[year_teams[j]]
                     vector = normalize(create_feature_vector(
                         team1_stats, team2_stats)).reshape(1, -1)
-                    prediction = model.predict_classes(
+                    prediction = model.predict(
                         vector, verbose=0)
-                    matchup = str(year) + "_" + \
-                              str(team1_id) + "_" + str(team2_id)
-                    prediction = prediction[0]
-                    row = [matchup, prediction]
-                    preds.append(row)
-        df = pd.DataFrame.from_records(
-            preds, columns=["game_ID", "Prediction"])
+                    prediction = prediction[0,1]
+                    df.loc[year_teams[i], year_teams[j]] = prediction
+                    df.loc[year_teams[j], year_teams[i]] = 1-prediction
         with open("Predictions" + str(year) + ".csv", "w") as pred:
             df.to_csv(pred, index=False)
 
@@ -353,7 +347,7 @@ def define_model(input, p):
     return model
 
 
-def predict_march_madness_matchups():
+def predict_march_madness_matchups(new_model=False):
     """
     Predicts March Madness matchups for
     2011, 2012, and 2013 tournaments
@@ -407,18 +401,22 @@ def predict_march_madness_matchups():
     model = define_model(data, .2)
 
     # Train the model with the training data
-    model.fit(data, labels,
-              nb_epoch=1000, batch_size=64)
+    if new_model:
+        model.fit(data, labels,
+                  nb_epoch=1000, batch_size=64)
+        model.save('model.h5')
+    else:
+        model = load_model('model.h5')
 
     # Test the model on the validation data
     model_output = model.predict_classes(
         validation_data, batch_size=64)
-    print "Validation Accuracy:"
+    print "\nValidation Accuracy:"
     print accuracy(model_output, validation_labels)
 
     model_output = model.predict_classes(
         test_data, batch_size=64)
-    print "Test Accuracy:"
+    print "\nTest Accuracy:"
     print accuracy(model_output, test_labels)
 
     # Calculate the season data for
@@ -431,3 +429,7 @@ def predict_march_madness_matchups():
     # its outcome using our model to CSV
     predict_matchups(
         prediction_years, seeds, model, prediction_statistics)
+
+
+if __name__ == "__main__":
+    predict_march_madness_matchups()
