@@ -111,12 +111,12 @@ end
 num_brackets = 50
 opt = generate_brackets
 
-for year in ["2011"]
+for year in ["2013"]
 	for overlap=30:60
-		path = "q_matrix_"*year*".csv"
+		path = "q_matrix_noise"*year*".csv"
 		println(year)
 		println(overlap)
-		download_path = "brackets/"*year*"_"*string(overlap)
+		download_path = "brackets/"*year*"_noise_"*string(overlap)
 		create_brackets(num_brackets, overlap, path, opt, download_path)
 	end
 end
